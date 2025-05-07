@@ -1,5 +1,5 @@
 import os
-from fastapi import APIRouter, File, UploadFile
+from fastapi import APIRouter, File,  UploadFile
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 import shutil
@@ -36,33 +36,42 @@ async def upload_file(file: UploadFile = File(...)):
         logger.error(f"파일 업로드 실패: {str(e)}")
         return JSONResponse(content={"error": str(e)}, status_code=500)
 
-# 예시: JSON만 받는 predict 엔드포인트
-class PredictRequest(BaseModel):
-    data: list
-
-@router.post("/predict")
-async def predict(request_body: PredictRequest):
-    logger.info(f"predict 요청: {request_body}")
-    # 실제 예측 로직은 여기에 작성
-    return {"result": "ok", "received": request_body.data}
-
 @router.get("/mosaic")
-async def file_mosaic():
-    girl = os.path.join(BASE_DIR, 'data', 'girl.jpg')
+async def mosaic_all_uploads():
     cascade = os.path.join(BASE_DIR, 'data', 'haarcascade_frontalface_alt.xml')
     face_cascade = cv2.CascadeClassifier(cascade)
-    img = cv2.imread(girl)
-    face = face_cascade.detectMultiScale(img, minSize=(150,150))
-    if len(face) == 0:
-        logger.error('얼굴인식 실패')
-        return JSONResponse(content={"error": "얼굴인식 실패"}, status_code=400)
-    for(x,y,w,h) in face:
-        logger.info(f'얼굴의 좌표 = {x}, {y}, {w}, {h}')
-        red = (0,0,255)
-        cv2.rectangle(img, (x, y), (x+w, y+h), red, thickness=20)
-    output_path = os.path.join(OUTPUT_DIR, 'girl-face.png')
-    cv2.imwrite(output_path, img)
+    processed_files = []
+    failed_files = []
+
+    for filename in os.listdir(UPLOAD_DIR):
+        if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
+            img_path = os.path.join(UPLOAD_DIR, filename)
+            img = cv2.imread(img_path)
+            if img is None:
+                failed_files.append(filename)
+                continue
+            face = face_cascade.detectMultiScale(img, minSize=(30,30))
+            if len(face) == 0:
+                logger.error(f'얼굴인식 실패: {filename}')
+                failed_files.append(filename)
+                continue
+            for (x, y, w, h) in face:
+                logger.info(f'{filename} 얼굴의 좌표 = {x}, {y}, {w}, {h}')
+                # 얼굴 영역 잘라내기
+                face_img = img[y:y+h, x:x+w]
+                # 모자이크(픽셀화) 적용
+                mosaic = cv2.resize(face_img, (16, 16), interpolation=cv2.INTER_LINEAR)
+                mosaic = cv2.resize(mosaic, (w, h), interpolation=cv2.INTER_NEAREST)
+                # 원본 이미지에 다시 붙이기
+                img[y:y+h, x:x+w] = mosaic
+            output_path = os.path.join(OUTPUT_DIR, f"{os.path.splitext(filename)[0]}-face.png")
+            cv2.imwrite(output_path, img)
+            processed_files.append(output_path)
+
     return JSONResponse(content={
         "message": "모자이크 처리 완료",
-        "output_path": output_path
+        "processed_files": processed_files,
+        "failed_files": failed_files
     })
+
+
