@@ -8,11 +8,13 @@ import uvicorn
 import logging
 import traceback
 import os
+import sys
 
 # 로깅 설정
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[logging.StreamHandler(sys.stdout)]
 )
 logger = logging.getLogger("tf_main")
 
@@ -54,9 +56,9 @@ async def log_requests(request: Request, call_next):
         logger.error(traceback.format_exc())
         raise
 
-# 라우터 등록 - prefix를 /tf로 설정
-logger.info("🔄 라우터 등록 (prefix='/tf')")
-app.include_router(file_router, prefix="/tf")
+# 라우터 등록 - prefix 없이 직접 등록
+logger.info("🔄 라우터 등록")
+app.include_router(file_router)
 
 # 루트 경로 핸들러
 @app.get("/", tags=["상태 확인"])
@@ -70,17 +72,18 @@ async def root():
         "service": "TensorFlow Service",
         "version": "1.0.0",
         "endpoints": {
-            "파일 업로드": "/tf/upload"
+            "파일 업로드": "/upload",
+            "모자이크 처리": "/mosaic"
         }
     }
 
 # 직접 실행 시 (개발 환경)
 if __name__ == "__main__":
-    logger.info(f"💻 개발 모드로 실행 - 포트: 9005")
+    logger.info(f"💻 개발 모드로 실행 - 포트: 9004")
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
-        port=9005,
+        port=9004,
         reload=True,
         log_level="info"
     ) 

@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, FastAPI, Request, Response
+from fastapi import APIRouter, FastAPI, Request, Response, File, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
@@ -10,6 +10,7 @@ from app.domain.model.service_proxy_factory import ServiceProxyFactory
 from contextlib import asynccontextmanager
 from app.domain.model.request_model import FinanceRequest
 from app.domain.model.service_type import ServiceType
+from typing import Optional
 
 # 로깅 설정
 logging.basicConfig(
@@ -82,24 +83,41 @@ async def proxy_get(
     return JSONResponse(content=response.json(), status_code=response.status_code)
 
 # POST
-
 @gateway_router.post("/{service}/{path:path}", summary="POST 프록시")
 async def proxy_post(
-    service: ServiceType, 
-    path: str, 
-    request_body: FinanceRequest,
-    request: Request
+    service: ServiceType,
+    path: str,
+    request: Request,
+    file: Optional[UploadFile] = File(None)
 ):
-    print(f"🌈Received request for service: {service}, path: {path}")
+    logger.info(f"🌈Received request for service: {service}, path: {path}")
     factory = ServiceProxyFactory(service_type=service)
-    body = request_body.model_dump_json()
-    print(f"Request body: {body}")
-    response = await factory.request(
-        method="POST",
-        path=path,
-        headers=request.headers.raw,
-        body=body
-    )
+    content_type = request.headers.get("content-type", "")
+
+    if "multipart/form-data" in content_type:
+        # 파일 업로드 처리
+        if file is None:
+            return JSONResponse(content={"error": "file is required"}, status_code=400)
+        files = {'file': (file.filename, file.file, file.content_type)}
+        response = await factory.request(
+            method="POST",
+            path=path,
+            files=files
+        )
+    elif "application/json" in content_type:
+        # JSON 처리
+        try:
+            json_data = await request.json()
+        except Exception:
+            return JSONResponse(content={"error": "Invalid JSON body"}, status_code=400)
+        response = await factory.request(
+            method="POST",
+            path=path,
+            json=json_data
+        )
+    else:
+        return JSONResponse(content={"error": "지원하지 않는 Content-Type"}, status_code=415)
+
     if response.status_code == 200:
         try:
             return JSONResponse(
@@ -107,13 +125,12 @@ async def proxy_post(
                 status_code=response.status_code
             )
         except json.JSONDecodeError:
-            # 응답이 JSON이 아닌 경우
-            return JSONResponse(
-                content={"detail": "⚠️Invalid JSON response from service"},
-                status_code=500
+            return Response(
+                content=response.content,
+                media_type=response.headers.get('content-type', 'application/octet-stream'),
+                status_code=response.status_code
             )
     else:
-        # 에러 응답 처리
         return JSONResponse(
             content={"detail": f"Service error: {response.text}"},
             status_code=response.status_code

@@ -12,19 +12,19 @@ logger = logging.getLogger(__name__)
 def create_map(data_dir=None, output_dir=None) -> str:
         """범죄 지도를 생성하고 저장된 파일 경로를 반환합니다."""
         try:
-        # 상대 경로 설정
-        if data_dir is None:
-            data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'update_data')
-        if output_dir is None:
-            output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'stored-map')
-            
-            logger.info("범죄 지도 생성 시작...")
-        police_norm, state_geo = _load_required_data(data_dir)
-        folium_map = _create_folium_map(police_norm, state_geo)
-        output_map_file = os.path.join(output_dir, 'crime_map.html')
-        _save_map_html(folium_map, output_map_file)
-        logger.info(f"범죄 지도가 성공적으로 생성되었습니다: {output_map_file}")
-        return output_map_file
+            # 상대 경로 설정
+            if data_dir is None:
+                data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'update_data')
+            if output_dir is None:
+                output_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'stored-map')
+                
+                logger.info("범죄 지도 생성 시작...")
+            police_norm, state_geo = _load_required_data(data_dir)
+            folium_map = _create_folium_map(police_norm, state_geo)
+            output_map_file = os.path.join(output_dir, 'crime_map.html')
+            _save_map_html(folium_map, output_map_file)
+            logger.info(f"범죄 지도가 성공적으로 생성되었습니다: {output_map_file}")
+            return output_map_file
         except FileNotFoundError as e:
             logger.error(f"필수 파일 로드 실패: {e}")
             raise HTTPException(status_code=404, detail=f"필수 데이터 파일을 찾을 수 없습니다: {e}")
@@ -43,52 +43,52 @@ def _load_required_data(data_dir):
         """지도 생성에 필요한 데이터를 로드하고 기본적인 핸들링을 수행합니다."""
         logger.info("필수 데이터 로드 중...")
 
-        # police_norm 데이터 로드
-    police_norm_file = os.path.join(data_dir, 'police_norm_in_seoul.csv')
-    if not os.path.exists(police_norm_file):
-        raise FileNotFoundError(police_norm_file)
-    
-        try:
-        police_norm = pd.read_csv(police_norm_file)
-        logger.info(f"{police_norm_file} 파일 로드 완료")
-        police_norm = _preprocess_police_norm(police_norm)
-        except Exception as e:
-        logger.error(f"{police_norm_file} 파일 처리 중 오류: {e}")
-        raise ValueError(f"{police_norm_file} 파일을 처리하는 중 오류가 발생했습니다: {e}")
+            # police_norm 데이터 로드
+        police_norm_file = os.path.join(data_dir, 'police_norm_in_seoul.csv')
+        if not os.path.exists(police_norm_file):
+            raise FileNotFoundError(police_norm_file)
+        
+            try:
+                police_norm = pd.read_csv(police_norm_file)
+                logger.info(f"{police_norm_file} 파일 로드 완료")
+                police_norm = _preprocess_police_norm(police_norm)
+            except Exception as e:
+                logger.error(f"{police_norm_file} 파일 처리 중 오류: {e}")
+            raise ValueError(f"{police_norm_file} 파일을 처리하는 중 오류가 발생했습니다: {e}")
 
-    # GeoJSON 데이터 로드 (stored-data 폴더에서)
-    stored_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'stored-data')
-    geo_json_file = os.path.join(stored_data_dir, 'geo_simple.json')
-    if not os.path.exists(geo_json_file):
-        raise FileNotFoundError(geo_json_file)
-    
-        try:
-        with open(geo_json_file, 'r', encoding='utf-8') as f:
-                state_geo = json.load(f)
-        logger.info(f"{geo_json_file} 파일 로드 완료")
-        except json.JSONDecodeError as e:
-        logger.error(f"{geo_json_file} 파일 로드 중 JSON 디코딩 오류: {e}")
-        raise ValueError(f"{geo_json_file} 파일의 형식이 올바르지 않습니다.")
-        except Exception as e:
-        logger.error(f"{geo_json_file} 파일 처리 중 오류: {e}")
-        raise ValueError(f"{geo_json_file} 파일을 처리하는 중 오류가 발생했습니다: {e}")
+        # GeoJSON 데이터 로드 (stored-data 폴더에서)
+        stored_data_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(__file__)))), 'stored-data')
+        geo_json_file = os.path.join(stored_data_dir, 'geo_simple.json')
+        if not os.path.exists(geo_json_file):
+            raise FileNotFoundError(geo_json_file)
+        
+            try:
+                with open(geo_json_file, 'r', encoding='utf-8') as f:
+                    state_geo = json.load(f)
+                logger.info(f"{geo_json_file} 파일 로드 완료")
+            except json.JSONDecodeError as e:
+                logger.error(f"{geo_json_file} 파일 로드 중 JSON 디코딩 오류: {e}")
+                raise ValueError(f"{geo_json_file} 파일의 형식이 올바르지 않습니다.")
+            except Exception as e:
+                logger.error(f"{geo_json_file} 파일 처리 중 오류: {e}")
+            raise ValueError(f"{geo_json_file} 파일을 처리하는 중 오류가 발생했습니다: {e}")
 
-        return police_norm, state_geo
+            return police_norm, state_geo
 
 def _preprocess_police_norm(police_norm_df: pd.DataFrame) -> pd.DataFrame:
     """police_norm 데이터를 전처리합니다."""
-        logger.info("police_norm 데이터 전처리 중...")
+    logger.info("police_norm 데이터 전처리 중...")
     
     # 필수 컬럼 존재 여부 확인
     required_cols = ['자치구', '범죄']
-        for col in required_cols:
-            if col not in police_norm_df.columns:
-                if col == '범죄' and '범죄율' in police_norm_df.columns:
-                     police_norm_df['범죄'] = police_norm_df['범죄율']
-                     logger.info("컬럼명 변경 시도: '범죄율' -> '범죄'")
-                else:
+    for col in required_cols:
+        if col not in police_norm_df.columns:
+            if col == '범죄' and '범죄율' in police_norm_df.columns:
+                    police_norm_df['범죄'] = police_norm_df['범죄율']
+                    logger.info("컬럼명 변경 시도: '범죄율' -> '범죄'")
+            else:
                 logger.error(f"police_norm 데이터에 필수 컬럼 '{col}'이 없습니다.")
-                     raise KeyError(f"police_norm 데이터에 필수 컬럼 '{col}'이 없습니다.")
+                raise KeyError(f"police_norm 데이터에 필수 컬럼 '{col}'이 없습니다.")
 
         logger.info(f"police_norm 데이터 전처리 완료. 컬럼: {police_norm_df.columns.tolist()}")
         return police_norm_df
@@ -98,7 +98,7 @@ def _create_folium_map(police_norm, state_geo):
     logger.info("Folium 지도 생성 중...")
     
     # 기본 지도 생성
-        folium_map = folium.Map(location=[37.5502, 126.982], zoom_start=12, tiles='OpenStreetMap')
+    folium_map = folium.Map(location=[37.5502, 126.982], zoom_start=12, tiles='OpenStreetMap')
 
     # 범죄율 Choropleth 레이어 추가
     crime_choropleth = folium.Choropleth(
@@ -151,7 +151,7 @@ def _create_folium_map(police_norm, state_geo):
             ])
             
             # 구 중심점 좌표 계산
-                         coords = feature['geometry']['coordinates'][0]
+            coords = feature['geometry']['coordinates'][0]
             if coords:
                 center_lat = sum(coord[1] for coord in coords) / len(coords)
                 center_lng = sum(coord[0] for coord in coords) / len(coords)
@@ -198,15 +198,15 @@ def _create_folium_map(police_norm, state_geo):
 def _save_map_html(folium_map, output_file):
         """생성된 Folium 지도를 HTML 파일로 저장합니다."""
         try:
-        logger.info(f"생성된 지도를 HTML 파일로 저장 중: {output_file}")
+            logger.info(f"생성된 지도를 HTML 파일로 저장 중: {output_file}")
         # 디렉토리가 없으면 생성
-        os.makedirs(os.path.dirname(output_file), exist_ok=True)
-        folium_map.save(output_file)
+            os.makedirs(os.path.dirname(output_file), exist_ok=True)
+            folium_map.save(output_file)
             logger.info("지도 저장 완료.")
         except Exception as e:
             logger.error(f"지도 저장 중 오류 발생: {str(e)}")
             logger.error(traceback.format_exc())
-            raise IOError(f"지도를 HTML 파일로 저장하는 데 실패했습니다: {str(e)}")
+        raise IOError(f"지도를 HTML 파일로 저장하는 데 실패했습니다: {str(e)}")
 
 # 사용 예시 (테스트용)
 # if __name__ == '__main__':
