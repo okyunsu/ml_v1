@@ -1,5 +1,5 @@
 import json
-from fastapi import APIRouter, FastAPI, Request, Response, File, UploadFile
+from fastapi import APIRouter, FastAPI, Request, Response, File, UploadFile, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 import os
@@ -87,36 +87,33 @@ async def proxy_get(
 async def proxy_post(
     service: ServiceType,
     path: str,
-    request: Request,
-    file: Optional[UploadFile] = File(None)
+    file: Optional[UploadFile] = File(None),
+    json_data: Optional[str] = Form(None)
 ):
     logger.info(f"🌈Received request for service: {service}, path: {path}")
     factory = ServiceProxyFactory(service_type=service)
-    content_type = request.headers.get("content-type", "")
 
-    if "multipart/form-data" in content_type:
+    if file:
         # 파일 업로드 처리
-        if file is None:
-            return JSONResponse(content={"error": "file is required"}, status_code=400)
         files = {'file': (file.filename, file.file, file.content_type)}
         response = await factory.request(
             method="POST",
             path=path,
             files=files
         )
-    elif "application/json" in content_type:
-        # JSON 처리
+    elif json_data:
+        # JSON 문자열 파싱
         try:
-            json_data = await request.json()
+            data = json.loads(json_data)
         except Exception:
-            return JSONResponse(content={"error": "Invalid JSON body"}, status_code=400)
+            return JSONResponse(content={"error": "Invalid JSON string"}, status_code=400)
         response = await factory.request(
             method="POST",
             path=path,
-            json=json_data
+            json=data
         )
     else:
-        return JSONResponse(content={"error": "지원하지 않는 Content-Type"}, status_code=415)
+        return JSONResponse(content={"error": "file 또는 json_data 중 하나는 입력해야 합니다."}, status_code=400)
 
     if response.status_code == 200:
         try:
